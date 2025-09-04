@@ -6,6 +6,7 @@ import LocationInsights from './components/LocationInsights'
 import RecordAlert from './components/RecordAlert'
 import InteractionSummary from './components/InteractionSummary'
 import PremiumModal from './components/PremiumModal'
+import { AuthProvider } from './hooks/useAuth'
 import { UserProvider } from './context/UserContext'
 
 function App() {
@@ -30,17 +31,19 @@ function App() {
   }
 
   return (
-    <UserProvider>
-      <div className="min-h-screen bg-bg">
-        <NavigationBar currentView={currentView} onNavigate={setCurrentView} />
-        <main className="pb-20">
-          {renderCurrentView()}
-        </main>
-        {showPremiumModal && (
-          <PremiumModal onClose={() => setShowPremiumModal(false)} />
-        )}
-      </div>
-    </UserProvider>
+    <AuthProvider>
+      <UserProvider>
+        <div className="min-h-screen bg-bg">
+          <NavigationBar currentView={currentView} onNavigate={setCurrentView} />
+          <main className="pb-20">
+            {renderCurrentView()}
+          </main>
+          {showPremiumModal && (
+            <PremiumModal onClose={() => setShowPremiumModal(false)} />
+          )}
+        </div>
+      </UserProvider>
+    </AuthProvider>
   )
 }
 

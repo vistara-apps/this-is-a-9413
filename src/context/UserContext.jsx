@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { useAuth } from '../hooks/useAuth.js'
+import { recordings, summaries, emergencyContacts } from '../services/supabase.js'
 
 const UserContext = createContext()
 
@@ -11,89 +13,189 @@ export const useUser = () => {
 }
 
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [isPremium, setIsPremium] = useState(false)
-  const [recordings, setRecordings] = useState([])
-  const [summaries, setSummaries] = useState([])
-  const [emergencyContacts, setEmergencyContacts] = useState([])
+  const { user, isPremium, isAuthenticated, userId } = useAuth()
+  const [userRecordings, setUserRecordings] = useState([])
+  const [userSummaries, setUserSummaries] = useState([])
+  const [userEmergencyContacts, setUserEmergencyContacts] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
 
-  // Load user data from localStorage on mount
+  // Load user data when authenticated
   useEffect(() => {
-    const savedUser = localStorage.getItem('justiceGuard_user')
-    const savedPremium = localStorage.getItem('justiceGuard_premium')
-    const savedRecordings = localStorage.getItem('justiceGuard_recordings')
-    const savedSummaries = localStorage.getItem('justiceGuard_summaries')
-    const savedContacts = localStorage.getItem('justiceGuard_contacts')
-
-    if (savedUser) setUser(JSON.parse(savedUser))
-    if (savedPremium) setIsPremium(JSON.parse(savedPremium))
-    if (savedRecordings) setRecordings(JSON.parse(savedRecordings))
-    if (savedSummaries) setSummaries(JSON.parse(savedSummaries))
-    if (savedContacts) setEmergencyContacts(JSON.parse(savedContacts))
-  }, [])
-
-  // Save to localStorage whenever state changes
-  useEffect(() => {
-    if (user) localStorage.setItem('justiceGuard_user', JSON.stringify(user))
-  }, [user])
-
-  useEffect(() => {
-    localStorage.setItem('justiceGuard_premium', JSON.stringify(isPremium))
-  }, [isPremium])
-
-  useEffect(() => {
-    localStorage.setItem('justiceGuard_recordings', JSON.stringify(recordings))
-  }, [recordings])
-
-  useEffect(() => {
-    localStorage.setItem('justiceGuard_summaries', JSON.stringify(summaries))
-  }, [summaries])
-
-  useEffect(() => {
-    localStorage.setItem('justiceGuard_contacts', JSON.stringify(emergencyContacts))
-  }, [emergencyContacts])
-
-  const addRecording = (recording) => {
-    const newRecording = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      ...recording
+    if (isAuthenticated && userId) {
+      loadUserData()
+    } else {
+      // Clear data when not authenticated
+      setUserRecordings([])
+      setUserSummaries([])
+      setUserEmergencyContacts([])
     }
-    setRecordings(prev => [newRecording, ...prev])
-    return newRecording
+  }, [isAuthenticated, userId])
+
+  const loadUserData = async () => {
+    if (!userId) return
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Load all user data in parallel
+      const [recordingsResult, summariesResult, contactsResult] = await Promise.all([
+        recordings.getRecordings(userId),
+        summaries.getSummaries(userId),
+        emergencyContacts.getContacts(userId)
+      ])
+
+      if (recordingsResult.error) throw recordingsResult.error
+      if (summariesResult.error) throw summariesResult.error
+      if (contactsResult.error) throw contactsResult.error
+
+      setUserRecordings(recordingsResult.data || [])
+      setUserSummaries(summariesResult.data || [])
+      setUserEmergencyContacts(contactsResult.data || [])
+    } catch (err) {
+      console.error('Error loading user data:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const addSummary = (summary) => {
-    const newSummary = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      ...summary
+  const addRecording = async (recording) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    try {
+      setError(null)
+      const { data, error } = await recordings.addRecording(userId, recording)
+      if (error) throw error
+
+      setUserRecordings(prev => [data, ...prev])
+      return data
+    } catch (err) {
+      setError(err.message)
+      throw err
     }
-    setSummaries(prev => [newSummary, ...prev])
-    return newSummary
   }
 
-  const addEmergencyContact = (contact) => {
-    const newContact = {
-      id: Date.now().toString(),
-      ...contact
+  const deleteRecording = async (recordingId) => {
+    try {
+      setError(null)
+      const { error } = await recordings.deleteRecording(recordingId)
+      if (error) throw error
+
+      setUserRecordings(prev => prev.filter(r => r.id !== recordingId))
+    } catch (err) {
+      setError(err.message)
+      throw err
     }
-    setEmergencyContacts(prev => [...prev, newContact])
-    return newContact
+  }
+
+  const addSummary = async (summary) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    try {
+      setError(null)
+      const { data, error } = await summaries.addSummary(userId, summary)
+      if (error) throw error
+
+      setUserSummaries(prev => [data, ...prev])
+      return data
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const deleteSummary = async (summaryId) => {
+    try {
+      setError(null)
+      const { error } = await summaries.deleteSummary(summaryId)
+      if (error) throw error
+
+      setUserSummaries(prev => prev.filter(s => s.id !== summaryId))
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const addEmergencyContact = async (contact) => {
+    if (!userId) throw new Error('User not authenticated')
+
+    try {
+      setError(null)
+      const { data, error } = await emergencyContacts.addContact(userId, contact)
+      if (error) throw error
+
+      setUserEmergencyContacts(prev => [...prev, data])
+      return data
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const updateEmergencyContact = async (contactId, updates) => {
+    try {
+      setError(null)
+      const { data, error } = await emergencyContacts.updateContact(contactId, updates)
+      if (error) throw error
+
+      setUserEmergencyContacts(prev => 
+        prev.map(contact => contact.id === contactId ? data : contact)
+      )
+      return data
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
+  }
+
+  const deleteEmergencyContact = async (contactId) => {
+    try {
+      setError(null)
+      const { error } = await emergencyContacts.deleteContact(contactId)
+      if (error) throw error
+
+      setUserEmergencyContacts(prev => prev.filter(c => c.id !== contactId))
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
   }
 
   const value = {
+    // User data
     user,
-    setUser,
     isPremium,
-    setIsPremium,
-    recordings,
-    summaries,
-    emergencyContacts,
+    isAuthenticated,
+    userId,
+    
+    // User content
+    recordings: userRecordings,
+    summaries: userSummaries,
+    emergencyContacts: userEmergencyContacts,
+    
+    // Loading states
+    loading,
+    error,
+    
+    // Actions
     addRecording,
+    deleteRecording,
     addSummary,
+    deleteSummary,
     addEmergencyContact,
-    setEmergencyContacts
+    updateEmergencyContact,
+    deleteEmergencyContact,
+    
+    // Utilities
+    refreshData: loadUserData,
+    
+    // Legacy compatibility (for existing components)
+    setUser: () => {}, // No-op for backward compatibility
+    setIsPremium: () => {}, // No-op for backward compatibility
+    setEmergencyContacts: () => {} // No-op for backward compatibility
   }
 
   return (
