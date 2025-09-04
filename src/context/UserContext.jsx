@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import { useAuth } from '../hooks/useAuth.js'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { recordings, summaries, emergencyContacts } from '../services/supabase.js'
 
 const UserContext = createContext()

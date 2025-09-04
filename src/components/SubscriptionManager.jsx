@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react'
 import { Crown, CreditCard, Calendar, AlertCircle, Check, X } from 'lucide-react'
 import ActionIcon from './ActionIcon'
 import AlertBanner from './AlertBanner'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../hooks/useAuth.jsx'
 import { stripeService, SUBSCRIPTION_PLANS } from '../services/stripe'
 
 const SubscriptionManager = ({ onClose }) => {

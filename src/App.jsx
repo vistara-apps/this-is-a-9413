@@ -6,7 +6,7 @@ import LocationInsights from './components/LocationInsights'
 import RecordAlert from './components/RecordAlert'
 import InteractionSummary from './components/InteractionSummary'
 import PremiumModal from './components/PremiumModal'
-import { AuthProvider } from './hooks/useAuth'
+import { AuthProvider } from './hooks/useAuth.jsx'
 import { UserProvider } from './context/UserContext'
 
 function App() {
